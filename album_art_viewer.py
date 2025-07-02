@@ -168,7 +168,10 @@ def display_latest_album_art():
     root.mainloop()
 
 while True:
+    root = tk.Tk()
+    root.attributes('-fullscreen', True)
     download_album_art(ALBUM_LIST_FILE, FOLDER)  # Wait for download to finish before displaying
     display_latest_album_art()
     # Short pause to avoid rapid looping if file is changing quickly
+    
     time.sleep(1)
