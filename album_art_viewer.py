@@ -117,12 +117,22 @@ def display_latest_album_art():
         files.extend(glob.glob(os.path.join(FOLDER, ext)))
 
     # Delete all other files in the album_art folder except the one being displayed
+    deleted_any = False
     for f in files:
         if os.path.abspath(f) != os.path.abspath(last_filepath):
             try:
                 os.remove(f)
+                deleted_any = True
             except Exception as e:
                 print(f"Error deleting {f}: {e}")
+
+    # Delete songs.txt if any album art was deleted
+    if deleted_any and os.path.exists(ALBUM_LIST_FILE):
+        try:
+            os.remove(ALBUM_LIST_FILE)
+            print("Deleted songs.txt because album art was deleted.")
+        except Exception as e:
+            print(f"Error deleting songs.txt: {e}")
 
     # Display the album art for the last song in songs.txt fullscreen
     root = tk.Tk()
