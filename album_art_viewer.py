@@ -128,38 +128,55 @@ def display_latest_album_art():
             except Exception as e:
                 print(f"Error deleting {f}: {e}")
 
-
-
-    # Display the album art for the last song in songs.txt fullscreen
+    # --- Create the window and label only once ---
     root = tk.Tk()
     root.attributes('-fullscreen', True)
     root.configure(background='black')
 
-    img = Image.open(last_filepath)
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
+    def load_and_resize_image(filepath):
+        img = Image.open(filepath)
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        img_ratio = img.width / img.height
+        new_height = screen_height
+        new_width = int(screen_height * img_ratio)
+        img = img.resize((new_width, new_height), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
 
-    # Resize image so height is full screen, maintaining aspect ratio (no stretching)
-    img_ratio = img.width / img.height
-    new_height = screen_height
-    new_width = int(screen_height * img_ratio)
-    img = img.resize((new_width, new_height), Image.LANCZOS)
-    tk_img = ImageTk.PhotoImage(img)
-
+    tk_img = load_and_resize_image(last_filepath)
     label = tk.Label(root, image=tk_img, bg='black')
     label.pack(expand=True)
+    label.image = tk_img  # Prevent garbage collection
 
     root.bind("<Escape>", lambda e: root.destroy())  # Press Esc to exit
     root.bind("<Double-Button-1>", lambda e: root.destroy())  # Double-click to exit
 
-    # Poll for changes to songs.txt in a background loop
+    # --- Poll for changes and update image in place ---
     def poll_for_change():
+        nonlocal last_entry, last_filepath
         try:
             with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
                 new_lines = [line.strip() for line in f if line.strip()]
-            if not new_lines or new_lines[-1] != last_entry:
+            if not new_lines:
                 root.destroy()
                 return
+            new_last_entry = new_lines[-1]
+            if new_last_entry != last_entry:
+                artist, song, album_name = get_album_name_from_song(new_last_entry)
+                if not album_name:
+                    root.destroy()
+                    return
+                new_last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
+                new_last_filepath = os.path.join(FOLDER, new_last_filename)
+                if not os.path.exists(new_last_filepath):
+                    root.destroy()
+                    return
+                # Update image in label
+                new_tk_img = load_and_resize_image(new_last_filepath)
+                label.configure(image=new_tk_img)
+                label.image = new_tk_img
+                last_entry = new_last_entry
+                last_filepath = new_last_filepath
         except Exception:
             pass
         root.after(2000, poll_for_change)  # Check every 2 seconds
@@ -168,8 +185,6 @@ def display_latest_album_art():
     root.mainloop()
 
 while True:
-    root = tk.Tk()
-    root.attributes('-fullscreen', True)
     download_album_art(ALBUM_LIST_FILE, FOLDER)  # Wait for download to finish before displaying
     display_latest_album_art()
     # Short pause to avoid rapid looping if file is changing quickly
