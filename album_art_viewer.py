@@ -2,7 +2,7 @@
 import os
 import glob
 import requests
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 import tkinter as tk
 import time
 
@@ -95,6 +95,19 @@ def download_album_art(album_list_file, folder):
 # Download album art for all songs in songs.txt (iterate through all lines)
 download_album_art(ALBUM_LIST_FILE, FOLDER)
 
+def create_not_found_image(width, height, message="Album Art Not Found"):
+    img = Image.new("RGB", (width, height), color="black")
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("arial.ttf", 48)
+    except Exception:
+        font = ImageFont.load_default()
+    text_width, text_height = draw.textsize(message, font=font)
+    x = (width - text_width) // 2
+    y = (height - text_height) // 2
+    draw.text((x, y), message, fill="white", font=font)
+    return img
+
 def display_latest_album_art():
     with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
@@ -134,13 +147,16 @@ def display_latest_album_art():
     root.configure(background='black')
 
     def load_and_resize_image(filepath):
-        img = Image.open(filepath)
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
-        img_ratio = img.width / img.height
-        new_height = screen_height
-        new_width = int(screen_height * img_ratio)
-        img = img.resize((new_width, new_height), Image.LANCZOS)
+        if os.path.exists(filepath):
+            img = Image.open(filepath)
+            img_ratio = img.width / img.height
+            new_height = screen_height
+            new_width = int(screen_height * img_ratio)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+        else:
+            img = create_not_found_image(screen_width, screen_height)
         return ImageTk.PhotoImage(img)
 
     tk_img = load_and_resize_image(last_filepath)
@@ -223,13 +239,16 @@ def main():
     root.configure(background='black')
 
     def load_and_resize_image(filepath):
-        img = Image.open(filepath)
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
-        img_ratio = img.width / img.height
-        new_height = screen_height
-        new_width = int(screen_height * img_ratio)
-        img = img.resize((new_width, new_height), Image.LANCZOS)
+        if os.path.exists(filepath):
+            img = Image.open(filepath)
+            img_ratio = img.width / img.height
+            new_height = screen_height
+            new_width = int(screen_height * img_ratio)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+        else:
+            img = create_not_found_image(screen_width, screen_height)
         return ImageTk.PhotoImage(img)
 
     tk_img = load_and_resize_image(last_filepath)
