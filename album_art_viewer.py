@@ -110,7 +110,7 @@ def display_latest_album_art():
     last_filepath = os.path.join(FOLDER, last_filename)
     if not os.path.exists(last_filepath):
         print(f"Album art not found for last song: {last_entry}")
-        exit(1)
+        
 
     # Supported image extensions
     EXTENSIONS = ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.gif')
@@ -184,9 +184,94 @@ def display_latest_album_art():
     poll_for_change()
     root.mainloop()
 
-while True:
-    download_album_art(ALBUM_LIST_FILE, FOLDER)  # Wait for download to finish before displaying
-    display_latest_album_art()
-    # Short pause to avoid rapid looping if file is changing quickly
-    
-    time.sleep(1)
+def main():
+    # Initial download and setup
+    download_album_art(ALBUM_LIST_FILE, FOLDER)
+
+    with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
+    if not lines:
+        print("songs.txt is empty.")
+        return
+    last_entry = lines[-1]
+    artist, song, album_name = get_album_name_from_song(last_entry)
+    if not album_name:
+        print(f"Could not determine album for: {last_entry}")
+        return
+    last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
+    last_filepath = os.path.join(FOLDER, last_filename)
+
+    # Supported image extensions
+    EXTENSIONS = ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.gif')
+    files = []
+    for ext in EXTENSIONS:
+        files.extend(glob.glob(os.path.join(FOLDER, ext)))
+
+    # Delete all other files in the album_art folder except the one being displayed
+    deleted_any = False
+    for f in files:
+        if os.path.abspath(f) != os.path.abspath(last_filepath):
+            try:
+                os.remove(f)
+                deleted_any = True
+            except Exception as e:
+                print(f"Error deleting {f}: {e}")
+
+    # --- Create the window and label only once ---
+    root = tk.Tk()
+    root.attributes('-fullscreen', True)
+    root.configure(background='black')
+
+    def load_and_resize_image(filepath):
+        img = Image.open(filepath)
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        img_ratio = img.width / img.height
+        new_height = screen_height
+        new_width = int(screen_height * img_ratio)
+        img = img.resize((new_width, new_height), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
+    tk_img = load_and_resize_image(last_filepath)
+    label = tk.Label(root, image=tk_img, bg='black')
+    label.pack(expand=True)
+    label.image = tk_img  # Prevent garbage collection
+
+    root.bind("<Escape>", lambda e: root.destroy())  # Press Esc to exit
+    root.bind("<Double-Button-1>", lambda e: root.destroy())  # Double-click to exit
+
+    def poll_for_change():
+        nonlocal last_entry, last_filepath
+        try:
+            download_album_art(ALBUM_LIST_FILE, FOLDER)
+            with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
+                new_lines = [line.strip() for line in f if line.strip()]
+            if not new_lines:
+                root.destroy()
+                return
+            new_last_entry = new_lines[-1]
+            if new_last_entry != last_entry:
+                artist, song, album_name = get_album_name_from_song(new_last_entry)
+                if not album_name:
+                    print(f"Could not determine album for: {new_last_entry}")
+                    return
+                new_last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
+                new_last_filepath = os.path.join(FOLDER, new_last_filename)
+                if not os.path.exists(new_last_filepath):
+                    print(f"Album art not found for last song: {new_last_entry}")
+                    return
+                # Update image in label
+                new_tk_img = load_and_resize_image(new_last_filepath)
+                label.configure(image=new_tk_img)
+                label.image = new_tk_img
+                last_entry = new_last_entry
+                last_filepath = new_last_filepath
+        except Exception as e:
+            print(f"Error in poll_for_change: {e}")
+        root.after(2000, poll_for_change)  # Check every 2 seconds
+
+    poll_for_change()
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
