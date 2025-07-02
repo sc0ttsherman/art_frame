@@ -4,6 +4,7 @@ import glob
 import requests
 from PIL import Image, ImageTk
 import tkinter as tk
+import time
 
 # Folder containing album art
 FOLDER = "album_art/"
@@ -92,67 +93,75 @@ def download_album_art(album_list_file, folder):
 # Download album art for all songs in songs.txt (iterate through all lines)
 download_album_art(ALBUM_LIST_FILE, FOLDER)
 
-# Supported image extensions
-EXTENSIONS = ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.gif')
+def display_latest_album_art():
+    with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
+    if not lines:
+        print("songs.txt is empty.")
+        exit(1)
+    last_entry = lines[-1]
+    artist, song, album_name = get_album_name_from_song(last_entry)
+    if not album_name:
+        print(f"Could not determine album for: {last_entry}")
+        exit(1)
+    last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
+    last_filepath = os.path.join(FOLDER, last_filename)
+    if not os.path.exists(last_filepath):
+        print(f"Album art not found for last song: {last_entry}")
+        exit(1)
 
-# Find all image files in the folder
-files = []
-for ext in EXTENSIONS:
-    files.extend(glob.glob(os.path.join(FOLDER, ext)))
+    # Supported image extensions
+    EXTENSIONS = ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.gif')
+    files = []
+    for ext in EXTENSIONS:
+        files.extend(glob.glob(os.path.join(FOLDER, ext)))
 
-if not files:
-    print("No album art images found in album_art/")
-    exit(1)
+    # Delete all other files in the album_art folder except the one being displayed
+    for f in files:
+        if os.path.abspath(f) != os.path.abspath(last_filepath):
+            try:
+                os.remove(f)
+            except Exception as e:
+                print(f"Error deleting {f}: {e}")
 
-# Find the most recent file by modification time
-most_recent_file = max(files, key=os.path.getmtime)
+    # Display the album art for the last song in songs.txt fullscreen
+    root = tk.Tk()
+    root.attributes('-fullscreen', True)
+    root.configure(background='black')
 
-# Find the filename for the last entry in songs.txt
-with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
-    lines = [line.strip() for line in f if line.strip()]
-if not lines:
-    print("songs.txt is empty.")
-    exit(1)
-last_entry = lines[-1]
-artist, song, album_name = get_album_name_from_song(last_entry)
-if not album_name:
-    print(f"Could not determine album for: {last_entry}")
-    exit(1)
-last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
-last_filepath = os.path.join(FOLDER, last_filename)
-if not os.path.exists(last_filepath):
-    print(f"Album art not found for last song: {last_entry}")
-    exit(1)
+    img = Image.open(last_filepath)
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
 
-# Display the album art for the last song in songs.txt fullscreen
-root = tk.Tk()
-root.attributes('-fullscreen', True)
-root.configure(background='black')
+    # Resize image so height is full screen, maintaining aspect ratio (no stretching)
+    img_ratio = img.width / img.height
+    new_height = screen_height
+    new_width = int(screen_height * img_ratio)
+    img = img.resize((new_width, new_height), Image.LANCZOS)
+    tk_img = ImageTk.PhotoImage(img)
 
-img = Image.open(last_filepath)
-screen_width = root.winfo_screenwidth()
-screen_height = root.winfo_screenheight()
+    label = tk.Label(root, image=tk_img, bg='black')
+    label.pack(expand=True)
 
-# Resize image so height is full screen, maintaining aspect ratio (no stretching)
-img_ratio = img.width / img.height
+    root.bind("<Escape>", lambda e: root.destroy())  # Press Esc to exit
+    root.bind("<Double-Button-1>", lambda e: root.destroy())  # Double-click to exit
 
-new_height = screen_height
-new_width = int(screen_height * img_ratio)
-
-img = img.resize((new_width, new_height), Image.LANCZOS)
-tk_img = ImageTk.PhotoImage(img)
-
-label = tk.Label(root, image=tk_img, bg='black')
-label.pack(expand=True)
-
-# Delete all other files in the album_art folder except the one being displayed
-for f in files:
-    if os.path.abspath(f) != os.path.abspath(last_filepath):
+    # Poll for changes to songs.txt in a background loop
+    def poll_for_change():
         try:
-            os.remove(f)
-        except Exception as e:
-            print(f"Error deleting {f}: {e}")
+            with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
+                new_lines = [line.strip() for line in f if line.strip()]
+            if not new_lines or new_lines[-1] != last_entry:
+                root.destroy()
+                return
+        except Exception:
+            pass
+        root.after(2000, poll_for_change)  # Check every 2 seconds
 
-root.bind("<Escape>", lambda e: root.destroy())  # Press Esc to exit
-root.bind("<Double-Button-1>", lambda e: root.destroy())  # Double-click to exit
-root.mainloop()
+    poll_for_change()
+    root.mainloop()
+
+while True:
+    display_latest_album_art()
+    # Short pause to avoid rapid looping if file is changing quickly
+    time.sleep(1)
