@@ -154,4 +154,5 @@ for f in files:
             print(f"Error deleting {f}: {e}")
 
 root.bind("<Escape>", lambda e: root.destroy())  # Press Esc to exit
+root.bind("<Double-Button-1>", lambda e: root.destroy())  # Double-click to exit
 root.mainloop()
