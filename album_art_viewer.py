@@ -46,49 +46,51 @@ def get_album_name_from_song(song_entry):
 def download_album_art(album_list_file, folder):
     with open(album_list_file, "r", encoding="utf-8") as f:
         songs = [line.strip() for line in f if line.strip()]
-    for entry in songs:
-        artist, song, album_name = get_album_name_from_song(entry)
-        if not album_name:
-            print(f"Could not find album for: {entry}")
-            continue
-        filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
-        filepath = os.path.join(folder, filename)
-        if os.path.exists(filepath):
-            print(f"Already exists: {filename}")
-            continue
-        # Now search for the album art using album name and artist
-        query = f"{artist} {album_name}" if artist else album_name
-        params = {
-            "term": query,
-            "media": "music",
-            "entity": "album",
-            "limit": 5
-        }
-        response = requests.get("https://itunes.apple.com/search", params=params)
-        if response.status_code == 200:
-            results = response.json().get("results")
-            match = None
-            for result in results:
-                if (result.get("collectionName", "").lower() == album_name.lower() and
-                    result.get("artistName", "").lower() == artist.lower()):
-                    match = result
-                    break
-            if not match and results:
-                match = results[0]
-            if match:
-                art_url = match.get("artworkUrl100")
-                if art_url:
-                    art_url = art_url.replace("100x100bb", "600x600bb")
-                    img_data = requests.get(art_url).content
-                    with open(filepath, "wb") as img_file:
-                        img_file.write(img_data)
-                    print(f"Downloaded: {artist} - {album_name}")
-                else:
-                    print(f"No artwork found for: {entry}")
+    if not songs:
+        return
+    entry = songs[-1]  # Only process the last song
+    artist, song, album_name = get_album_name_from_song(entry)
+    if not album_name:
+        print(f"Could not find album for: {entry}")
+        return
+    filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
+    filepath = os.path.join(folder, filename)
+    if os.path.exists(filepath):
+        print(f"Already exists: {filename}")
+        return
+    # Now search for the album art using album name and artist
+    query = f"{artist} {album_name}" if artist else album_name
+    params = {
+        "term": query,
+        "media": "music",
+        "entity": "album",
+        "limit": 5
+    }
+    response = requests.get("https://itunes.apple.com/search", params=params)
+    if response.status_code == 200:
+        results = response.json().get("results")
+        match = None
+        for result in results:
+            if (result.get("collectionName", "").lower() == album_name.lower() and
+                result.get("artistName", "").lower() == artist.lower()):
+                match = result
+                break
+        if not match and results:
+            match = results[0]
+        if match:
+            art_url = match.get("artworkUrl100")
+            if art_url:
+                art_url = art_url.replace("100x100bb", "600x600bb")
+                img_data = requests.get(art_url).content
+                with open(filepath, "wb") as img_file:
+                    img_file.write(img_data)
+                print(f"Downloaded: {artist} - {album_name}")
             else:
-                print(f"No album match found for: {entry}")
+                print(f"No artwork found for: {entry}")
         else:
-            print(f"API error for: {entry}")
+            print(f"No album match found for: {entry}")
+    else:
+        print(f"API error for: {entry}")
 
 # Download album art for all songs in songs.txt (iterate through all lines)
 download_album_art(ALBUM_LIST_FILE, FOLDER)
@@ -126,13 +128,7 @@ def display_latest_album_art():
             except Exception as e:
                 print(f"Error deleting {f}: {e}")
 
-    # Delete songs.txt if any album art was deleted
-    if deleted_any and os.path.exists(ALBUM_LIST_FILE):
-        try:
-            os.remove(ALBUM_LIST_FILE)
-            print("Deleted songs.txt because album art was deleted.")
-        except Exception as e:
-            print(f"Error deleting songs.txt: {e}")
+
 
     # Display the album art for the last song in songs.txt fullscreen
     root = tk.Tk()
