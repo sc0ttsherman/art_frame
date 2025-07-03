@@ -100,7 +100,7 @@ def display_latest_album_art():
         lines = [line.strip() for line in f if line.strip()]
     if not lines:
         print("songs.txt is empty.")
-        exit(1)
+        
     last_entry = lines[-1]
     artist, song, album_name = get_album_name_from_song(last_entry)
     if not album_name:
@@ -129,12 +129,7 @@ def display_latest_album_art():
                 print(f"Error deleting {f}: {e}")
 
     # Delete songs.txt if any album art was deleted
-    if deleted_any and os.path.exists(ALBUM_LIST_FILE):
-        try:
-            os.remove(ALBUM_LIST_FILE)
-            print("Deleted songs.txt because album art was deleted.")
-        except Exception as e:
-            print(f"Error deleting songs.txt: {e}")
+ 
 
     # Display the album art for the last song in songs.txt fullscreen
     root = tk.Tk()
