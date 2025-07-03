@@ -150,13 +150,19 @@ def display_latest_album_art():
     def poll_for_change():
         nonlocal last_entry, last_filepath
         try:
-            download_album_art(ALBUM_LIST_FILE, FOLDER)
+            # Only process the last song in the file
             with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
                 new_lines = [line.strip() for line in f if line.strip()]
             new_last_entry = new_lines[-1] if new_lines else ""
             artist, song, album_name = get_album_name_from_song(new_last_entry) if new_last_entry else ("", "", "")
             new_last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg" if album_name else ""
             new_last_filepath = os.path.join(FOLDER, new_last_filename) if new_last_filename else ""
+
+            # Download album art for the new last song if needed
+            if new_last_entry and (not os.path.exists(new_last_filepath) or new_last_entry != last_entry):
+                _ = get_album_name_from_song(new_last_entry)  # Ensure album info
+                download_album_art(ALBUM_LIST_FILE, FOLDER)
+
             if new_last_entry != last_entry or new_last_filepath != last_filepath:
                 new_tk_img = load_and_resize_image(new_last_filepath, root)
                 label.configure(image=new_tk_img)
@@ -173,6 +179,5 @@ def display_latest_album_art():
     poll_for_change()
     root.mainloop()
 
-# Only call once, no while True loop needed
-download_album_art(ALBUM_LIST_FILE, FOLDER)
+# Only call this once
 display_latest_album_art()
