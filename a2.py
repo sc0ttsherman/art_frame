@@ -129,6 +129,3 @@ def monitor_and_display():
     root.bind("<Double-Button-1>", lambda e: root.destroy())
     poll()
     root.mainloop()
-
-if __name__ == "__main__":
-    monitor_and_display()
