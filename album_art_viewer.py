@@ -2,7 +2,7 @@
 import os
 import glob
 import requests
-from PIL import Image, ImageTk, ImageDraw, ImageFont
+from PIL import Image, ImageTk
 import tkinter as tk
 import time
 
@@ -95,74 +95,81 @@ def download_album_art(album_list_file, folder):
 # Download album art for all songs in songs.txt (iterate through all lines)
 download_album_art(ALBUM_LIST_FILE, FOLDER)
 
-def create_not_found_image(width, height, message="Album Art Not Found"):
-    img = Image.new("RGB", (width, height), color="black")
-    draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype("arial.ttf", 48)
-    except Exception:
-        font = ImageFont.load_default()
-    text_width, text_height = draw.textsize(message, font=font)
-    x = (width - text_width) // 2
-    y = (height - text_height) // 2
-    draw.text((x, y), message, fill="white", font=font)
-    return img
-
-def load_and_resize_image(filepath, root):
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    if filepath and os.path.exists(filepath):
-        img = Image.open(filepath)
-        img_ratio = img.width / img.height
-        new_height = screen_height
-        new_width = int(screen_height * img_ratio)
-        img = img.resize((new_width, new_height), Image.LANCZOS)
-    else:
-        img = create_not_found_image(screen_width, screen_height)
-    return ImageTk.PhotoImage(img)
-
 def display_latest_album_art():
     with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
-    last_entry = lines[-1] if lines else ""
-    artist, song, album_name = get_album_name_from_song(last_entry) if last_entry else ("", "", "")
-    last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg" if album_name else ""
-    last_filepath = os.path.join(FOLDER, last_filename) if last_filename else ""
+    if not lines:
+        print("songs.txt is empty.")
+        exit(1)
+    last_entry = lines[-1]
+    artist, song, album_name = get_album_name_from_song(last_entry)
+    if not album_name:
+        print(f"Could not determine album for: {last_entry}")
+        exit(1)
+    last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
+    last_filepath = os.path.join(FOLDER, last_filename)
+    if not os.path.exists(last_filepath):
+        print(f"Album art not found for last song: {last_entry}")
+        exit(1)
 
+    # Supported image extensions
+    EXTENSIONS = ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.gif')
+    files = []
+    for ext in EXTENSIONS:
+        files.extend(glob.glob(os.path.join(FOLDER, ext)))
+
+    # Delete all other files in the album_art folder except the one being displayed
+    deleted_any = False
+    for f in files:
+        if os.path.abspath(f) != os.path.abspath(last_filepath):
+            try:
+                os.remove(f)
+                deleted_any = True
+            except Exception as e:
+                print(f"Error deleting {f}: {e}")
+
+    # Delete songs.txt if any album art was deleted
+    
+
+    # Display the album art for the last song in songs.txt fullscreen
     root = tk.Tk()
     root.attributes('-fullscreen', True)
     root.configure(background='black')
 
-    tk_img = load_and_resize_image(last_filepath, root)
+    img = Image.open(last_filepath)
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+
+    # Resize image so height is full screen, maintaining aspect ratio (no stretching)
+    img_ratio = img.width / img.height
+    new_height = screen_height
+    new_width = int(screen_height * img_ratio)
+    img = img.resize((new_width, new_height), Image.LANCZOS)
+    tk_img = ImageTk.PhotoImage(img)
+
     label = tk.Label(root, image=tk_img, bg='black')
     label.pack(expand=True)
-    label.image = tk_img
 
-    root.bind("<Escape>", lambda e: root.destroy())
-    root.bind("<Double-Button-1>", lambda e: root.destroy())
+    root.bind("<Escape>", lambda e: root.destroy())  # Press Esc to exit
+    root.bind("<Double-Button-1>", lambda e: root.destroy())  # Double-click to exit
 
+    # Poll for changes to songs.txt in a background loop
     def poll_for_change():
-        nonlocal last_entry, last_filepath
         try:
             with open(ALBUM_LIST_FILE, "r", encoding="utf-8") as f:
                 new_lines = [line.strip() for line in f if line.strip()]
-            new_last_entry = new_lines[-1] if new_lines else ""
-            artist, song, album_name = get_album_name_from_song(new_last_entry) if new_last_entry else ("", "", "")
-            new_last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg" if album_name else ""
-            new_last_filepath = os.path.join(FOLDER, new_last_filename) if new_last_filename else ""
-            if new_last_entry != last_entry or new_last_filepath != last_filepath:
-                new_tk_img = load_and_resize_image(new_last_filepath, root)
-                label.configure(image=new_tk_img)
-                label.image = new_tk_img
-                last_entry = new_last_entry
-                last_filepath = new_last_filepath
+            if not new_lines or new_lines[-1] != last_entry:
+                root.destroy()
+                return
         except Exception:
             pass
-        root.after(2000, poll_for_change)
+        root.after(2000, poll_for_change)  # Check every 2 seconds
 
     poll_for_change()
     root.mainloop()
 
-# Remove the while True loop at the end and just call:
-download_album_art(ALBUM_LIST_FILE, FOLDER)
-display_latest_album_art()
+while True:
+    download_album_art(ALBUM_LIST_FILE, FOLDER)  # Wait for download to finish before displaying
+    display_latest_album_art()
+    # Short pause to avoid rapid looping if file is changing quickly
+    time.sleep(1)
