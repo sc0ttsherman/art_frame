@@ -100,17 +100,17 @@ def display_latest_album_art():
         lines = [line.strip() for line in f if line.strip()]
     if not lines:
         print("songs.txt is empty.")
-        exit(1)
+       
     last_entry = lines[-1]
     artist, song, album_name = get_album_name_from_song(last_entry)
     if not album_name:
         print(f"Could not determine album for: {last_entry}")
-        exit(1)
+        
     last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
     last_filepath = os.path.join(FOLDER, last_filename)
     if not os.path.exists(last_filepath):
         print(f"Album art not found for last song: {last_entry}")
-        exit(1)
+       
 
     # Supported image extensions
     EXTENSIONS = ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.gif')
