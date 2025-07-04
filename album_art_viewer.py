@@ -99,10 +99,10 @@ def create_not_found_image(width, height, message="The Album Art Could Not Be Fe
     img = Image.new("RGB", (width, height), color="black")
     draw = ImageDraw.Draw(img)
     try:
-        font = ImageFont.truetype("arial.ttf", 48)
+        # Increase font size for much larger text
+        font = ImageFont.truetype("arial.ttf", 120)
     except Exception:
         font = ImageFont.load_default()
-    # Use textbbox instead of textsize for newer Pillow versions
     bbox = draw.textbbox((0, 0), message, font=font)
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
