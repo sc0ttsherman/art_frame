@@ -105,12 +105,12 @@ def display_latest_album_art():
     artist, song, album_name = get_album_name_from_song(last_entry)
     if not album_name:
         print(f"Could not determine album for: {last_entry}")
-        exit(1)
+       
     last_filename = sanitize_filename(f"{artist} - {album_name}") + ".jpg"
     last_filepath = os.path.join(FOLDER, last_filename)
     if not os.path.exists(last_filepath):
         print(f"Album art not found for last song: {last_entry}")
-        exit(1)
+       
 
     # Supported image extensions
     EXTENSIONS = ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.gif')
@@ -128,9 +128,7 @@ def display_latest_album_art():
             except Exception as e:
                 print(f"Error deleting {f}: {e}")
 
-    # Delete songs.txt if any album art was deleted
- 
-
+   
     # Display the album art for the last song in songs.txt fullscreen
     root = tk.Tk()
     root.attributes('-fullscreen', True)
