@@ -99,8 +99,8 @@ def create_not_found_image(width, height, message="The Album Art Could Not Be Fe
     img = Image.new("RGB", (width, height), color="black")
     draw = ImageDraw.Draw(img)
     try:
-        # Increase font size for much larger text
-        font = ImageFont.truetype("arial.ttf", 120)
+        # Make the font size even larger for better visibility
+        font = ImageFont.truetype("arial.ttf", 180)
     except Exception:
         font = ImageFont.load_default()
     bbox = draw.textbbox((0, 0), message, font=font)
